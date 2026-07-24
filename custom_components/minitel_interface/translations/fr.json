@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion au wm-server",
+        "description": "Entrez l'adresse du serveur d'affichage Minitel.",
+        "data": {
+          "host": "Hôte",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter au serveur.",
+      "unknown": "Erreur inattendue."
+    },
+    "abort": {
+      "already_configured": "Ce serveur est déjà configuré.",
+      "single_instance_allowed": "Une seule instance de Minitel Interface est autorisée."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Intervalle de polling (secondes)"
+        }
+      }
+    }
+  }
+}

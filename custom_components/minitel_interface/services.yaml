@@ -1,0 +1,271 @@
+win_create:
+  name: Create window
+  description: Create a new window on the Minitel display.
+  fields:
+    pos_x:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    pos_y:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    width:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    height:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    background_color:
+      selector:
+        number:
+          min: 0
+          max: 255
+          mode: box
+
+win_destroy:
+  name: Destroy window
+  description: Remove an existing window from the Minitel display.
+  fields:
+    win_index:
+      required: true
+      description: >-
+        Window index as last reported by the coordinator. Indices shift when
+        windows are destroyed - re-check the current summary before using a
+        stale value.
+      selector:
+        number:
+          min: 0
+          mode: box
+
+win_transform:
+  name: Move/resize window
+  description: Change the position and size of an existing window.
+  fields:
+    win_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    pos_x:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    pos_y:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    width:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    height:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+
+win_order:
+  name: Reorder window
+  description: Change the z-order (stacking position) of a window.
+  fields:
+    win_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    order:
+      required: true
+      description: Target z-order position.
+      selector:
+        number:
+          min: 0
+          mode: box
+
+set_object_text:
+  name: Set text object
+  description: Display or update a text object inside a window.
+  fields:
+    win_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    obj_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    x:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    y:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    width:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    height:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    font_size:
+      selector:
+        number:
+          min: 1
+          mode: box
+    text:
+      required: true
+      description: >-
+        Text to render. Encoded as ASCII by the server - non-ASCII
+        characters are not supported by the protocol.
+      selector:
+        text:
+
+set_object_picture:
+  name: Set picture object
+  description: Display or update a JPEG/PNG picture object inside a window.
+  fields:
+    win_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    obj_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    x:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    y:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    width:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    height:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    file_path:
+      required: true
+      description: >-
+        Path to a JPEG or PNG file, restricted to Home Assistant's allowed
+        directories (e.g. /config/www).
+      selector:
+        text:
+
+set_object_video:
+  name: Set video object
+  description: Display or update a raw H.264 video object inside a window.
+  fields:
+    win_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    obj_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    x:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    y:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    width:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    height:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    file_path:
+      required: true
+      description: >-
+        Path to a raw H.264 stream file, restricted to Home Assistant's
+        allowed directories.
+      selector:
+        text:
+    fullscreen:
+      selector:
+        boolean:
+
+rm_object:
+  name: Remove object
+  description: Remove an object from a window.
+  fields:
+    win_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    obj_index:
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
