@@ -1,0 +1,167 @@
+blueprint:
+  name: Minitel - Horloge et température
+  description: >-
+    Crée une fenêtre sur l'écran Minitel affichant l'heure et la température
+    d'un capteur, puis les rafraîchit chaque minute.
+
+
+    La fenêtre est créée une seule fois, au démarrage de Home Assistant (ou
+    au rechargement de cette automation). `win_index`/`obj_index_*` doivent
+    correspondre aux index attendus côté serveur : laissez les valeurs par
+    défaut (0) si c'est la première fenêtre créée sur le wm-server, sinon
+    vérifiez `sensor.minitel_interface_window_count` après création et
+    ajustez ces valeurs en conséquence - les index se décalent si des
+    fenêtres/objets sont détruits entre-temps.
+  domain: automation
+  source_url: https://github.com/maxou/minitel_ha_integ/blob/main/blueprints/automation/clock_temperature.yaml
+  input:
+    temperature_sensor:
+      name: Capteur de température
+      description: Capteur dont la valeur sera affichée.
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+
+    win_index:
+      name: Index de la fenêtre
+      default: 0
+      selector:
+        number:
+          min: 0
+          mode: box
+
+    pos_x:
+      name: Position X de la fenêtre
+      default: 0
+      selector:
+        number:
+          min: 0
+          mode: box
+    pos_y:
+      name: Position Y de la fenêtre
+      default: 0
+      selector:
+        number:
+          min: 0
+          mode: box
+    width:
+      name: Largeur de la fenêtre
+      default: 200
+      selector:
+        number:
+          min: 1
+          mode: box
+    height:
+      name: Hauteur de la fenêtre
+      default: 100
+      selector:
+        number:
+          min: 1
+          mode: box
+    background_color:
+      name: Couleur de fond (0-255)
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 255
+          mode: box
+
+    obj_index_clock:
+      name: Index de l'objet horloge
+      default: 0
+      selector:
+        number:
+          min: 0
+          mode: box
+    clock_format:
+      name: Format de l'heure
+      description: Format strftime (ex. "%H:%M" ou "%H:%M:%S").
+      default: "%H:%M"
+      selector:
+        text:
+    clock_font_size:
+      name: Taille de police de l'horloge
+      default: 16
+      selector:
+        number:
+          min: 1
+          mode: box
+
+    obj_index_temp:
+      name: Index de l'objet température
+      default: 1
+      selector:
+        number:
+          min: 0
+          mode: box
+    temp_font_size:
+      name: Taille de police de la température
+      default: 12
+      selector:
+        number:
+          min: 1
+          mode: box
+
+trigger:
+  - trigger: homeassistant
+    event: start
+    id: startup
+  - trigger: time_pattern
+    minutes: "/1"
+    id: tick
+
+condition: []
+
+variables:
+  temperature_sensor: !input temperature_sensor
+  clock_format: !input clock_format
+  win_index: !input win_index
+  win_width: !input width
+  win_height: !input height
+  obj_index_clock: !input obj_index_clock
+  clock_font_size: !input clock_font_size
+  obj_index_temp: !input obj_index_temp
+  temp_font_size: !input temp_font_size
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: startup
+        sequence:
+          - action: minitel_interface.win_create
+            data:
+              pos_x: !input pos_x
+              pos_y: !input pos_y
+              width: !input width
+              height: !input height
+              background_color: !input background_color
+
+  - action: minitel_interface.set_object_text
+    data:
+      win_index: "{{ win_index }}"
+      obj_index: "{{ obj_index_clock }}"
+      x: 4
+      y: 4
+      width: "{{ win_width - 8 }}"
+      height: "{{ clock_font_size + 4 }}"
+      font_size: "{{ clock_font_size }}"
+      text: "{{ now().strftime(clock_format) }}"
+
+  - action: minitel_interface.set_object_text
+    data:
+      win_index: "{{ win_index }}"
+      obj_index: "{{ obj_index_temp }}"
+      x: 4
+      y: "{{ clock_font_size + 12 }}"
+      width: "{{ win_width - 8 }}"
+      height: "{{ temp_font_size + 4 }}"
+      font_size: "{{ temp_font_size }}"
+      text: >-
+        {{ states(temperature_sensor) }}{{
+          state_attr(temperature_sensor, 'unit_of_measurement') or '' }}
+
+mode: single
+max_exceeded: silent
