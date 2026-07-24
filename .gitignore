@@ -1,6 +1,11 @@
 __pycache__/
 *.py[cod]
 
+# Local dev/test-only symlink recreated by tests/conftest.py so HA's loader
+# finds the integration at custom_components/minitel_interface; the real
+# source lives at the repo root (see hacs.json content_in_root).
+/custom_components/
+
 .venv/
 venv/
 
