@@ -269,3 +269,12 @@ rm_object:
         number:
           min: 0
           mode: box
+
+power:
+  name: Power
+  description: Turn the Minitel's power on or off.
+  fields:
+    state:
+      required: true
+      selector:
+        boolean:

@@ -8,7 +8,7 @@ import struct
 import pytest
 
 from custom_components.minitel_interface.wmclient import WmClient
-from custom_components.minitel_interface.wmclient.const import CMD_GET_SUMMARY, CMD_WIN_CREATE
+from custom_components.minitel_interface.wmclient.const import CMD_GET_SUMMARY, CMD_POWER, CMD_WIN_CREATE
 
 
 class FakeWmServer:
@@ -86,6 +86,24 @@ async def test_get_summary_round_trip(fake_server):
 
     assert len(windows) == 1
     assert (windows[0].width, windows[0].height) == (556, 512)
+
+
+async def test_power_sends_expected_bytes(fake_server):
+    server, port = fake_server
+    client = WmClient("127.0.0.1", port)
+    await client.async_connect()
+    try:
+        await client.async_power(True)
+        await asyncio.sleep(0.05)
+    finally:
+        await client.async_close()
+
+    assert len(server.received) == 1
+    command, flags, data_type, payload = server.received[0]
+    assert command == CMD_POWER
+    assert flags == 0
+    assert data_type == 0
+    assert payload == struct.pack("<B", 1)
 
 
 async def test_commands_are_serialized(fake_server):

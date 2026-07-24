@@ -46,6 +46,14 @@ def test_encode_rm_object():
     assert protocol.encode_rm_object(1, 0) == struct.pack("<HH", 1, 0)
 
 
+def test_encode_power_on():
+    assert protocol.encode_power(True) == struct.pack("<B", 1)
+
+
+def test_encode_power_off():
+    assert protocol.encode_power(False) == struct.pack("<B", 0)
+
+
 def test_encode_set_text():
     payload, data_type = protocol.encode_set_text(0, 0, 0, 0, 100, 20, 8, "hello")
     expected = struct.pack("<HHHHHH", 0, 0, 0, 0, 100, 20) + struct.pack("<H", 8) + b"hello\x00"

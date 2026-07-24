@@ -67,6 +67,11 @@ async def test_set_object_text_service(hass: HomeAssistant, setup_integration, m
     mock_client.async_set_object_text.assert_awaited_once_with(0, 0, 0, 0, 100, 20, 8, "hello")
 
 
+async def test_power_service(hass: HomeAssistant, setup_integration, mock_client) -> None:
+    await hass.services.async_call(DOMAIN, "power", {"state": True}, blocking=True)
+    mock_client.async_power.assert_awaited_once_with(True)
+
+
 async def test_services_removed_on_unload(hass: HomeAssistant, setup_integration) -> None:
     assert hass.services.has_service(DOMAIN, "win_create")
 

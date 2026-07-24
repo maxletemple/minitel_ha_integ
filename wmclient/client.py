@@ -7,6 +7,7 @@ from .connection import WmConnection
 from .const import (
     CMD_GET_SUMMARY,
     CMD_PING,
+    CMD_POWER,
     CMD_RM_OBJECT,
     CMD_SET_OBJECT,
     CMD_WIN_CREATE,
@@ -110,6 +111,10 @@ class WmClient:
         )
         flags = FLAG_FULLSCREEN if fullscreen else 0
         await self._async_send_command(CMD_SET_OBJECT, payload, flags=flags, data_type=data_type)
+
+    async def async_power(self, state: bool) -> None:
+        payload = protocol.encode_power(state)
+        await self._async_send_command(CMD_POWER, payload)
 
     async def async_get_summary(self) -> list[WinSummary]:
         header = protocol.encode_header(CMD_GET_SUMMARY, 0)

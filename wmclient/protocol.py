@@ -21,6 +21,7 @@ _WIN_TRANSFORM = struct.Struct("<HHHHH")  # winIndex, posX, posY, width, height
 _WIN_ORDER = struct.Struct("<HH")  # winIndex, order
 _OBJ_SET = struct.Struct("<HHHHHH")  # winIndex, objIndex, x, y, width, height
 _OBJ_REMOVE = struct.Struct("<HH")  # winIndex, objIndex
+_POWER_SET = struct.Struct("<B")  # state
 _TEXT_HEADER = struct.Struct("<H")  # fontSize
 _PICTURE_HEADER = struct.Struct("<B")  # format
 _VIDEO_HEADER = struct.Struct("<B")  # format
@@ -59,6 +60,10 @@ def encode_win_order(win_index: int, order: int) -> bytes:
 
 def encode_rm_object(win_index: int, obj_index: int) -> bytes:
     return _OBJ_REMOVE.pack(win_index, obj_index)
+
+
+def encode_power(state: bool) -> bytes:
+    return _POWER_SET.pack(1 if state else 0)
 
 
 def _encode_obj_set(win_index: int, obj_index: int, x: int, y: int, width: int, height: int) -> bytes:

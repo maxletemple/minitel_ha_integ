@@ -29,6 +29,7 @@ from .const import (
     ATTR_ORDER,
     ATTR_POS_X,
     ATTR_POS_Y,
+    ATTR_STATE,
     ATTR_TEXT,
     ATTR_WIDTH,
     ATTR_WIN_INDEX,
@@ -36,6 +37,7 @@ from .const import (
     ATTR_Y,
     DOMAIN,
     MAX_PAYLOAD_BYTES,
+    SERVICE_POWER,
     SERVICE_RM_OBJECT,
     SERVICE_SET_OBJECT_PICTURE,
     SERVICE_SET_OBJECT_TEXT,
@@ -111,6 +113,8 @@ _RM_OBJECT_SCHEMA = vol.Schema(
         vol.Required(ATTR_OBJ_INDEX): cv.positive_int,
     }
 )
+
+_POWER_SCHEMA = vol.Schema({vol.Required(ATTR_STATE): cv.boolean})
 
 
 def _get_coordinator(hass: HomeAssistant) -> MinitelCoordinator:
@@ -226,6 +230,10 @@ def async_register_services(hass: HomeAssistant) -> None:
         await coordinator.client.async_rm_object(call.data[ATTR_WIN_INDEX], call.data[ATTR_OBJ_INDEX])
         await coordinator.async_request_refresh()
 
+    async def async_power(call: ServiceCall) -> None:
+        coordinator = _get_coordinator(hass)
+        await coordinator.client.async_power(call.data[ATTR_STATE])
+
     hass.services.async_register(DOMAIN, SERVICE_WIN_CREATE, async_win_create, schema=_WIN_CREATE_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_WIN_DESTROY, async_win_destroy, schema=_WIN_DESTROY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_WIN_TRANSFORM, async_win_transform, schema=_WIN_TRANSFORM_SCHEMA)
@@ -240,6 +248,7 @@ def async_register_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SET_OBJECT_VIDEO, async_set_object_video, schema=_SET_OBJECT_VIDEO_SCHEMA
     )
     hass.services.async_register(DOMAIN, SERVICE_RM_OBJECT, async_rm_object, schema=_RM_OBJECT_SCHEMA)
+    hass.services.async_register(DOMAIN, SERVICE_POWER, async_power, schema=_POWER_SCHEMA)
 
 
 def async_unregister_services(hass: HomeAssistant) -> None:
@@ -253,5 +262,6 @@ def async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_SET_OBJECT_PICTURE,
         SERVICE_SET_OBJECT_VIDEO,
         SERVICE_RM_OBJECT,
+        SERVICE_POWER,
     ):
         hass.services.async_remove(DOMAIN, service)
