@@ -1,1 +1,0 @@
-../light-wm/PROTOCOL.md
