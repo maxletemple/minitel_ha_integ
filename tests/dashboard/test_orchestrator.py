@@ -15,15 +15,16 @@ from custom_components.minitel_interface.const import (
     DOMAIN,
 )
 from custom_components.minitel_interface.dashboard.orchestrator import (
+    async_ensure_dashboard_window,
     async_track_media_player_changes,
     async_update_dashboard,
 )
 
 
-def _make_entry(hass, entry_id: str, *, options: dict, switch_on: bool = True):
+def _make_entry(hass, entry_id: str, *, options: dict, switch_on: bool = True, windows: list | None = None):
     entry = SimpleNamespace(entry_id=entry_id, options=options)
     client = AsyncMock()
-    coordinator = SimpleNamespace(client=client)
+    coordinator = SimpleNamespace(client=client, data=windows or [], async_request_refresh=AsyncMock())
     switch = SimpleNamespace(is_on=switch_on)
     hass.data.setdefault(DOMAIN, {})[entry_id] = {
         "client": client,
@@ -71,6 +72,40 @@ async def test_orchestrator_pushes_clock_weather_when_no_media_player(hass):
     assert args[:6] == (0, 0, 0, 0, 200, 100)
     assert kwargs["is_png"] is True
     assert args[6].startswith(b"\x89PNG\r\n\x1a\n")
+
+
+async def test_ensure_window_creates_when_none_exist(hass):
+    entry, coordinator, _switch = _make_entry(hass, "entry7", options=_BASE_OPTIONS, windows=[])
+
+    await async_ensure_dashboard_window(hass, entry, coordinator.client, coordinator)
+
+    coordinator.client.async_win_create.assert_awaited_once_with(0, 0, 200, 100)
+    coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_ensure_window_skips_when_windows_already_exist(hass):
+    entry, coordinator, _switch = _make_entry(hass, "entry8", options=_BASE_OPTIONS, windows=[object()])
+
+    await async_ensure_dashboard_window(hass, entry, coordinator.client, coordinator)
+
+    coordinator.client.async_win_create.assert_not_awaited()
+
+
+async def test_ensure_window_skips_when_not_configured(hass):
+    entry, coordinator, _switch = _make_entry(hass, "entry9", options={}, windows=[])
+
+    await async_ensure_dashboard_window(hass, entry, coordinator.client, coordinator)
+
+    coordinator.client.async_win_create.assert_not_awaited()
+
+
+async def test_ensure_window_skips_when_win_index_not_zero(hass):
+    options = {**_BASE_OPTIONS, CONF_DASHBOARD_WIN_INDEX: 1}
+    entry, coordinator, _switch = _make_entry(hass, "entry10", options=options, windows=[])
+
+    await async_ensure_dashboard_window(hass, entry, coordinator.client, coordinator)
+
+    coordinator.client.async_win_create.assert_not_awaited()
 
 
 def test_track_media_player_changes_returns_none_when_not_configured(hass):

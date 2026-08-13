@@ -33,10 +33,44 @@ from ..const import (
     DOMAIN,
 )
 from ..coordinator import MinitelCoordinator
-from ..wmclient import WmError
+from ..wmclient import WmClient, WmError
 from . import scenes
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_ensure_dashboard_window(
+    hass: HomeAssistant, entry: ConfigEntry, client: WmClient, coordinator: MinitelCoordinator
+) -> None:
+    """Create the dashboard's window (index 0) on wm-server if it doesn't exist yet.
+
+    Only bootstraps the "fresh server, no windows at all" case, and only
+    when the dashboard is configured to use window 0 (the default) - if
+    dashboard_win_index points elsewhere, or windows already exist (e.g.
+    wm-server wasn't restarted, so its window list survived the HA
+    restart), this does nothing to avoid creating a duplicate window and
+    shifting every other window's index.
+    """
+    options = entry.options
+    if options.get(CONF_DASHBOARD_WEATHER_ENTITY) is None:
+        return
+    if options.get(CONF_DASHBOARD_WIN_INDEX, 0) != 0:
+        return
+    if coordinator.data:
+        return
+
+    try:
+        await client.async_win_create(
+            options[CONF_DASHBOARD_POS_X],
+            options[CONF_DASHBOARD_POS_Y],
+            options[CONF_DASHBOARD_WIDTH],
+            options[CONF_DASHBOARD_HEIGHT],
+        )
+    except WmError as err:
+        _LOGGER.warning("failed to create the dashboard window: %s", err)
+        return
+
+    await coordinator.async_request_refresh()
 
 # Attributes that actually affect what's rendered - media_player entities
 # often update media_position every few seconds, which would otherwise
