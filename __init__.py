@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .coordinator import MinitelCoordinator
-from .dashboard.orchestrator import (
-    async_ensure_dashboard_window,
-    async_track_media_player_changes,
-    async_update_dashboard,
-)
+from .dashboard.orchestrator import async_track_media_player_changes, async_update_dashboard
 from .services import async_register_services, async_unregister_services
 from .wmclient import WmClient, WmError
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.SENSOR, Platform.SWITCH]
 
@@ -28,11 +26,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await client.async_connect()
     except WmError as err:
-        raise ConfigEntryNotReady(f"cannot connect to {entry.data[CONF_HOST]}:{entry.data[CONF_PORT]}") from err
+        # Don't block setup on this: WmConnection reconnects lazily on the
+        # next command (see wmclient/connection.py), and the coordinator's
+        # own polling loop below retries indefinitely at scan_interval. Not
+        # raising ConfigEntryNotReady here means that loop, not HA's own
+        # (uncontrollable) entry-retry backoff, governs the reconnect cadence.
+        _LOGGER.warning(
+            "cannot connect to %s:%s yet, will keep retrying: %s", entry.data[CONF_HOST], entry.data[CONF_PORT], err
+        )
 
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     coordinator = MinitelCoordinator(hass, entry, client, scan_interval)
-    await coordinator.async_config_entry_first_refresh()
+    await coordinator.async_refresh()
 
     is_first_entry = DOMAIN not in hass.data
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"client": client, "coordinator": coordinator}
@@ -42,8 +47,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
-
-    await async_ensure_dashboard_window(hass, entry, client, coordinator)
 
     async def _dashboard_tick(now) -> None:
         await async_update_dashboard(hass, entry, coordinator)

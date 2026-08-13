@@ -68,10 +68,16 @@ async def async_ensure_dashboard_window(
             options[CONF_DASHBOARD_HEIGHT],
         )
     except WmError as err:
+        # Most likely wm-server is unreachable - async_win_create's send
+        # already tried to (re)connect and failed. Swallow it: the next
+        # scheduled dashboard tick will try again, and every other command
+        # (async_set_object_picture, coordinator polling) auto-reconnects
+        # the same way, so nothing needs a dedicated reconnect loop.
         _LOGGER.warning("failed to create the dashboard window: %s", err)
         return
 
     await coordinator.async_request_refresh()
+
 
 # Attributes that actually affect what's rendered - media_player entities
 # often update media_position every few seconds, which would otherwise
@@ -95,6 +101,11 @@ async def async_update_dashboard(hass: HomeAssistant, entry: ConfigEntry, coordi
     weather_entity = options.get(CONF_DASHBOARD_WEATHER_ENTITY)
     if weather_entity is None:
         return
+
+    # Cheap no-op once the window exists (coordinator.data is truthy); if
+    # wm-server was unreachable at startup (or dropped since), this retries
+    # the connection on every tick, at the configured scan interval.
+    await async_ensure_dashboard_window(hass, entry, coordinator.client, coordinator)
 
     width = options[CONF_DASHBOARD_WIDTH]
     height = options[CONF_DASHBOARD_HEIGHT]
