@@ -8,6 +8,15 @@ CONF_SCAN_INTERVAL = "scan_interval"
 
 DEFAULT_SCAN_INTERVAL = 10  # seconds
 
+CONF_DASHBOARD_MEDIA_PLAYER_ENTITY = "dashboard_media_player_entity"
+CONF_DASHBOARD_WEATHER_ENTITY = "dashboard_weather_entity"
+CONF_DASHBOARD_WIN_INDEX = "dashboard_win_index"
+CONF_DASHBOARD_OBJ_INDEX = "dashboard_obj_index"
+CONF_DASHBOARD_POS_X = "dashboard_pos_x"
+CONF_DASHBOARD_POS_Y = "dashboard_pos_y"
+CONF_DASHBOARD_WIDTH = "dashboard_width"
+CONF_DASHBOARD_HEIGHT = "dashboard_height"
+
 MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5 MB, guards the single shared TCP socket
 
 SERVICE_WIN_CREATE = "win_create"
