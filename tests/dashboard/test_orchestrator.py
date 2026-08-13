@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 
 from custom_components.minitel_interface.const import (
     CONF_DASHBOARD_HEIGHT,
+    CONF_DASHBOARD_MEDIA_PLAYER_ENTITY,
     CONF_DASHBOARD_OBJ_INDEX,
     CONF_DASHBOARD_POS_X,
     CONF_DASHBOARD_POS_Y,
@@ -13,7 +14,10 @@ from custom_components.minitel_interface.const import (
     CONF_DASHBOARD_WIN_INDEX,
     DOMAIN,
 )
-from custom_components.minitel_interface.dashboard.orchestrator import async_update_dashboard
+from custom_components.minitel_interface.dashboard.orchestrator import (
+    async_track_media_player_changes,
+    async_update_dashboard,
+)
 
 
 def _make_entry(hass, entry_id: str, *, options: dict, switch_on: bool = True):
@@ -67,3 +71,40 @@ async def test_orchestrator_pushes_clock_weather_when_no_media_player(hass):
     assert args[:6] == (0, 0, 0, 0, 200, 100)
     assert kwargs["is_png"] is True
     assert args[6].startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_track_media_player_changes_returns_none_when_not_configured(hass):
+    entry, coordinator, _switch = _make_entry(hass, "entry4", options=_BASE_OPTIONS)
+
+    assert async_track_media_player_changes(hass, entry, coordinator) is None
+
+
+async def test_track_media_player_changes_triggers_on_relevant_change(hass):
+    options = {**_BASE_OPTIONS, CONF_DASHBOARD_MEDIA_PLAYER_ENTITY: "media_player.appletv"}
+    entry, coordinator, _switch = _make_entry(hass, "entry5", options=options)
+    hass.states.async_set("media_player.appletv", "idle", {})
+
+    remove = async_track_media_player_changes(hass, entry, coordinator)
+    assert remove is not None
+    try:
+        hass.states.async_set("media_player.appletv", "playing", {"media_title": "Show"})
+        await hass.async_block_till_done()
+        coordinator.client.async_set_object_picture.assert_awaited()
+    finally:
+        remove()
+
+
+async def test_track_media_player_changes_ignores_irrelevant_change(hass):
+    options = {**_BASE_OPTIONS, CONF_DASHBOARD_MEDIA_PLAYER_ENTITY: "media_player.appletv"}
+    entry, coordinator, _switch = _make_entry(hass, "entry6", options=options)
+    hass.states.async_set("media_player.appletv", "playing", {"media_title": "Show", "media_position": 10})
+
+    remove = async_track_media_player_changes(hass, entry, coordinator)
+    try:
+        # Only media_position changes (e.g. playback progress ticking) - not
+        # one of the fields that affects what's rendered.
+        hass.states.async_set("media_player.appletv", "playing", {"media_title": "Show", "media_position": 20})
+        await hass.async_block_till_done()
+        coordinator.client.async_set_object_picture.assert_not_awaited()
+    finally:
+        remove()

@@ -32,6 +32,7 @@ _THUMBNAIL_MARGIN = 10
 _BAND_HEIGHT_RATIO = 0.28  # bottom title band height, as a fraction of the thumbnail's height
 _ELLIPSIS = "..."
 _DEFAULT_ICON_SIZE = 30
+_BOLD_STROKE_WIDTH = 1  # Pillow's default font has no bold variant; faux-bold via stroke_width
 
 
 def _load_font(font_path: str | None, size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
@@ -49,13 +50,31 @@ def _to_png_bytes(image: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-def _fit_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> str:
+def _text_width(draw: ImageDraw.ImageDraw, text: str, font, *, stroke_width: int = 0) -> float:
+    """draw.textlength doesn't accept stroke_width in this Pillow version; fall back to textbbox for bold text."""
+    if stroke_width:
+        bbox = draw.textbbox((0, 0), text, font=font, stroke_width=stroke_width)
+        return bbox[2] - bbox[0]
+    return draw.textlength(text, font=font)
+
+
+def _fit_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int, *, stroke_width: int = 0) -> str:
     """Truncate text with an ellipsis so it fits within max_width pixels."""
-    if not text or max_width <= 0 or draw.textlength(text, font=font) <= max_width:
+    if not text or max_width <= 0 or _text_width(draw, text, font, stroke_width=stroke_width) <= max_width:
         return text
-    while text and draw.textlength(text + _ELLIPSIS, font=font) > max_width:
+    while text and _text_width(draw, text + _ELLIPSIS, font, stroke_width=stroke_width) > max_width:
         text = text[:-1]
     return (text + _ELLIPSIS) if text else _ELLIPSIS
+
+
+def _draw_text(
+    draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, font, fill: int, *, bold: bool = False
+) -> None:
+    """draw.text, optionally faux-bold via a 1px stroke (Pillow's default font has no bold variant)."""
+    if bold:
+        draw.text(xy, text, fill=fill, font=font, stroke_width=_BOLD_STROKE_WIDTH, stroke_fill=fill)
+    else:
+        draw.text(xy, text, fill=fill, font=font)
 
 
 def _fit_font_size(
@@ -67,6 +86,7 @@ def _fit_font_size(
     *,
     min_size: int = 10,
     max_size: int = 400,
+    stroke_width: int = 0,
 ) -> int:
     """Largest font size (binary search) whose textbbox fits within max_width x max_height.
 
@@ -80,7 +100,7 @@ def _fit_font_size(
     while low <= high:
         mid = (low + high) // 2
         font = _load_font(font_path, mid)
-        bbox = draw.textbbox((0, 0), text, font=font)
+        bbox = draw.textbbox((0, 0), text, font=font, stroke_width=stroke_width)
         if (bbox[2] - bbox[0]) <= max_width and (bbox[3] - bbox[1]) <= max_height:
             best_size = mid
             low = mid + 1
@@ -401,16 +421,19 @@ def _draw_weather_column(
     background_color: int,
     font_path: str | None,
 ) -> None:
-    """Draw one [label] / icon / temperature column, centered between x0 and x1."""
+    """Draw one [label] / icon / temperature column, centered between x0 and x1.
+
+    Label and temperature are weather text, drawn bold (see _draw_text).
+    """
     center_x = (x0 + x1) / 2
     max_width = x1 - x0 - 2 * _MARGIN
     y = top_y
 
     if label:
         label_font = _load_font(font_path, label_font_size)
-        fitted_label = _fit_text(draw, label, label_font, max_width)
-        label_width = draw.textlength(fitted_label, font=label_font)
-        draw.text((center_x - label_width / 2, y), fitted_label, fill=text_color, font=label_font)
+        fitted_label = _fit_text(draw, label, label_font, max_width, stroke_width=_BOLD_STROKE_WIDTH)
+        label_width = _text_width(draw, fitted_label, label_font, stroke_width=_BOLD_STROKE_WIDTH)
+        _draw_text(draw, (center_x - label_width / 2, y), fitted_label, label_font, text_color, bold=True)
         y += label_font_size + _MARGIN
 
     icon_x = center_x - icon_size / 2
@@ -418,9 +441,9 @@ def _draw_weather_column(
     y += icon_size + _MARGIN
 
     temp_font = _load_font(font_path, temp_font_size)
-    fitted_temp = _fit_text(draw, temp_text, temp_font, max_width)
-    temp_width = draw.textlength(fitted_temp, font=temp_font)
-    draw.text((center_x - temp_width / 2, y), fitted_temp, fill=text_color, font=temp_font)
+    fitted_temp = _fit_text(draw, temp_text, temp_font, max_width, stroke_width=_BOLD_STROKE_WIDTH)
+    temp_width = _text_width(draw, fitted_temp, temp_font, stroke_width=_BOLD_STROKE_WIDTH)
+    _draw_text(draw, (center_x - temp_width / 2, y), fitted_temp, temp_font, text_color, bold=True)
 
 
 def render_idle_scene(
@@ -481,7 +504,9 @@ def render_idle_scene(
         day_column_width = column_bounds[1][1] - column_bounds[1][0]
         max_label_width = day_column_width - 2 * _MARGIN
         forecast_font_size = min(
-            _fit_font_size(draw, day_label, font_path, max_label_width, forecast_font_size * 2)
+            _fit_font_size(
+                draw, day_label, font_path, max_label_width, forecast_font_size * 2, stroke_width=_BOLD_STROKE_WIDTH
+            )
             for day_label, _, _ in forecast
         )
 
@@ -586,7 +611,7 @@ def render_media_scene(
         draw, condition, (icon_x0, icon_y0, icon_x0 + icon_size, icon_y0 + icon_size), text_color, background_color
     )
     text_y = icon_y0 + (icon_size - weather_font_size) // 2
-    draw.text((icon_x0 + icon_size + _MARGIN, text_y), temperature_text, fill=text_color, font=weather_font)
+    _draw_text(draw, (icon_x0 + icon_size + _MARGIN, text_y), temperature_text, weather_font, text_color, bold=True)
 
     title_font = _load_font(font_path, title_font_size)
     title_top = icon_y0 + icon_size + _MARGIN * 2

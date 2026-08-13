@@ -12,7 +12,7 @@ from homeassistant.helpers.event import async_track_time_interval
 
 from .const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .coordinator import MinitelCoordinator
-from .dashboard.orchestrator import async_update_dashboard
+from .dashboard.orchestrator import async_track_media_player_changes, async_update_dashboard
 from .services import async_register_services, async_unregister_services
 from .wmclient import WmClient, WmError
 
@@ -45,6 +45,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await async_update_dashboard(hass, entry, coordinator)
 
     entry.async_on_unload(async_track_time_interval(hass, _dashboard_tick, DASHBOARD_INTERVAL))
+
+    remove_media_listener = async_track_media_player_changes(hass, entry, coordinator)
+    if remove_media_listener is not None:
+        entry.async_on_unload(remove_media_listener)
+
+    await async_update_dashboard(hass, entry, coordinator)
 
     return True
 

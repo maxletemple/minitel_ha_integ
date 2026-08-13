@@ -4,6 +4,12 @@ Picks the media scene (clock+weather left, thumbnail/logo+title right) when
 something is playing, falls back to the idle scene (big clock + weather +
 forecast) otherwise, and skips entirely when the dashboard switch is off
 (e.g. while a fullscreen video is being shown manually - see switch.py).
+
+Updates are triggered by: the periodic timer (DASHBOARD_INTERVAL, see
+__init__.py - keeps the clock fresh even when nothing else changes), an
+immediate render at integration startup, and a state-change listener on the
+configured media_player (so artwork/title updates land as soon as the
+content changes, not up to a minute late).
 """
 
 from __future__ import annotations
@@ -11,7 +17,8 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.helpers.event import async_track_state_change_event
 
 from ..const import (
     CONF_DASHBOARD_HEIGHT,
@@ -30,6 +37,12 @@ from ..wmclient import WmError
 from . import scenes
 
 _LOGGER = logging.getLogger(__name__)
+
+# Attributes that actually affect what's rendered - media_player entities
+# often update media_position every few seconds, which would otherwise
+# trigger a re-render (and a wm-server round-trip) way more often than
+# needed.
+_RELEVANT_MEDIA_ATTRS = ("media_title", "entity_picture", "app_name", "source")
 
 
 async def async_update_dashboard(hass: HomeAssistant, entry: ConfigEntry, coordinator: MinitelCoordinator) -> None:
@@ -79,3 +92,28 @@ async def async_update_dashboard(hass: HomeAssistant, entry: ConfigEntry, coordi
         )
     except WmError as err:
         _LOGGER.warning("failed to push dashboard frame: %s", err)
+
+
+def _media_signature(state) -> tuple | None:
+    if state is None:
+        return None
+    return (state.state, tuple(state.attributes.get(attr) for attr in _RELEVANT_MEDIA_ATTRS))
+
+
+def async_track_media_player_changes(hass: HomeAssistant, entry: ConfigEntry, coordinator: MinitelCoordinator):
+    """Re-render the dashboard whenever the configured media_player's content changes.
+
+    Returns the listener's remove callback (pass it to entry.async_on_unload),
+    or None if no media_player is configured for the dashboard.
+    """
+    media_player_entity = entry.options.get(CONF_DASHBOARD_MEDIA_PLAYER_ENTITY)
+    if media_player_entity is None:
+        return None
+
+    @callback
+    def _async_state_changed(event: Event[EventStateChangedData]) -> None:
+        if _media_signature(event.data["old_state"]) == _media_signature(event.data["new_state"]):
+            return
+        hass.async_create_task(async_update_dashboard(hass, entry, coordinator))
+
+    return async_track_state_change_event(hass, [media_player_entity], _async_state_changed)
