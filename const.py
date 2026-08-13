@@ -16,6 +16,7 @@ CONF_DASHBOARD_POS_X = "dashboard_pos_x"
 CONF_DASHBOARD_POS_Y = "dashboard_pos_y"
 CONF_DASHBOARD_WIDTH = "dashboard_width"
 CONF_DASHBOARD_HEIGHT = "dashboard_height"
+CONF_DASHBOARD_LOGO_DIR = "dashboard_logo_dir"
 
 MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5 MB, guards the single shared TCP socket
 

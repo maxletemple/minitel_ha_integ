@@ -13,6 +13,7 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_DASHBOARD_HEIGHT,
+    CONF_DASHBOARD_LOGO_DIR,
     CONF_DASHBOARD_MEDIA_PLAYER_ENTITY,
     CONF_DASHBOARD_OBJ_INDEX,
     CONF_DASHBOARD_POS_X,
@@ -114,6 +115,10 @@ class MinitelInterfaceOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_DASHBOARD_HEIGHT, default=current.get(CONF_DASHBOARD_HEIGHT, 512)
                 ): vol.All(int, vol.Range(min=1)),
+                vol.Optional(
+                    CONF_DASHBOARD_LOGO_DIR,
+                    description={"suggested_value": current.get(CONF_DASHBOARD_LOGO_DIR)},
+                ): str,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -1,9 +1,9 @@
 """Orchestrates the periodic Minitel dashboard render.
 
-Picks the media-art scene when something is playing, falls back to the
-clock+weather scene otherwise, and skips entirely when the dashboard switch
-is off (e.g. while a fullscreen video is being shown manually - see
-switch.py).
+Picks the media scene (clock+weather left, thumbnail/logo+title right) when
+something is playing, falls back to the idle scene (big clock + weather +
+forecast) otherwise, and skips entirely when the dashboard switch is off
+(e.g. while a fullscreen video is being shown manually - see switch.py).
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 
 from ..const import (
     CONF_DASHBOARD_HEIGHT,
+    CONF_DASHBOARD_LOGO_DIR,
     CONF_DASHBOARD_MEDIA_PLAYER_ENTITY,
     CONF_DASHBOARD_OBJ_INDEX,
     CONF_DASHBOARD_POS_X,
@@ -53,10 +54,17 @@ async def async_update_dashboard(hass: HomeAssistant, entry: ConfigEntry, coordi
     image_bytes = None
     media_player_entity = options.get(CONF_DASHBOARD_MEDIA_PLAYER_ENTITY)
     if media_player_entity is not None:
-        image_bytes = await scenes.async_render_media_art_scene(hass, media_player_entity, width, height)
+        image_bytes = await scenes.async_render_media_scene(
+            hass,
+            media_player_entity,
+            weather_entity,
+            width,
+            height,
+            logo_dir=options.get(CONF_DASHBOARD_LOGO_DIR),
+        )
 
     if image_bytes is None:
-        image_bytes = await scenes.async_render_clock_weather_scene(hass, weather_entity, width, height)
+        image_bytes = await scenes.async_render_idle_scene(hass, weather_entity, width, height)
 
     try:
         await coordinator.client.async_set_object_picture(
