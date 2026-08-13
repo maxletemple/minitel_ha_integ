@@ -20,8 +20,6 @@ from .dashboard.orchestrator import (
 from .services import async_register_services, async_unregister_services
 from .wmclient import WmClient, WmError
 
-DASHBOARD_INTERVAL = timedelta(minutes=1)
-
 PLATFORMS = [Platform.SENSOR, Platform.SWITCH]
 
 
@@ -50,7 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _dashboard_tick(now) -> None:
         await async_update_dashboard(hass, entry, coordinator)
 
-    entry.async_on_unload(async_track_time_interval(hass, _dashboard_tick, DASHBOARD_INTERVAL))
+    entry.async_on_unload(async_track_time_interval(hass, _dashboard_tick, timedelta(seconds=scan_interval)))
 
     remove_media_listener = async_track_media_player_changes(hass, entry, coordinator)
     if remove_media_listener is not None:

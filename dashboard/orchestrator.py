@@ -5,11 +5,12 @@ something is playing, falls back to the idle scene (big clock + weather +
 forecast) otherwise, and skips entirely when the dashboard switch is off
 (e.g. while a fullscreen video is being shown manually - see switch.py).
 
-Updates are triggered by: the periodic timer (DASHBOARD_INTERVAL, see
-__init__.py - keeps the clock fresh even when nothing else changes), an
-immediate render at integration startup, and a state-change listener on the
-configured media_player (so artwork/title updates land as soon as the
-content changes, not up to a minute late).
+Updates are triggered by: the periodic timer (paced by the integration's
+configured scan interval - CONF_SCAN_INTERVAL, in seconds - see __init__.py;
+keeps the clock fresh even when nothing else changes), an immediate render
+at integration startup, and a state-change listener on the configured
+media_player (so artwork/title updates land as soon as the content changes,
+independent of the polling cadence).
 """
 
 from __future__ import annotations
