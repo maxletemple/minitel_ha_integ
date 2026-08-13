@@ -13,15 +13,21 @@ blueprint:
     ajustez ces valeurs en conséquence - les index se décalent si des
     fenêtres/objets sont détruits entre-temps.
   domain: automation
-  source_url: https://github.com/maxou/minitel_ha_integ/blob/main/blueprints/automation/clock_temperature.yaml
+  source_url: https://github.com/maxletemple/minitel_ha_integ/blob/master/blueprints/automation/clock_temperature.yaml
   input:
     temperature_sensor:
       name: Capteur de température
-      description: Capteur dont la valeur sera affichée.
+      description: >-
+        Capteur (ou entité météo) dont la température sera affichée. Pour une
+        entité `weather.*`, c'est la température de prévision (`temperature`)
+        qui est utilisée.
+      default: weather.meteo_france_forecast_for_city_montreuil_ile_de_france_93_fr_montreuil
       selector:
         entity:
-          domain: sensor
-          device_class: temperature
+          filter:
+            - domain: sensor
+              device_class: temperature
+            - domain: weather
 
     win_index:
       name: Index de la fenêtre
@@ -160,8 +166,12 @@ action:
       height: "{{ temp_font_size + 4 }}"
       font_size: "{{ temp_font_size }}"
       text: >-
-        {{ states(temperature_sensor) }}{{
-          state_attr(temperature_sensor, 'unit_of_measurement') or '' }}
+        {{ ((state_attr(temperature_sensor, 'temperature') ~
+             (state_attr(temperature_sensor, 'temperature_unit') or ''))
+            if temperature_sensor.split('.')[0] == 'weather' else
+            (states(temperature_sensor) ~
+             (state_attr(temperature_sensor, 'unit_of_measurement') or '')))
+           | replace('°', '') }}
 
 mode: single
 max_exceeded: silent
