@@ -28,7 +28,9 @@ from . import render
 _LOGGER = logging.getLogger(__name__)
 
 CLOCK_FORMAT = "%H:%M"
-FORECAST_DAYS = 5
+FORECAST_DAYS = 4
+
+_FRENCH_WEEKDAYS = ("Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche")
 
 
 @dataclass(frozen=True)
@@ -42,13 +44,17 @@ class ForecastDay:
     label: str
     condition: str
     high_text: str
-    low_text: str
 
 
 def _format_temperature(value: float | None, unit: str | None) -> str:
     if value is None:
         return ""
     return f"{value}{unit or ''}"
+
+
+def _french_weekday(entry_dt) -> str:
+    """Full French weekday name, independent of the system/HA locale."""
+    return _FRENCH_WEEKDAYS[entry_dt.weekday()]
 
 
 def _slugify(text: str) -> str:
@@ -91,10 +97,9 @@ async def async_get_weather_forecast(
         entry_dt = dt_util.parse_datetime(entry.get("datetime", "")) or dt_util.now()
         forecast.append(
             ForecastDay(
-                label=entry_dt.strftime("%a"),
+                label=_french_weekday(entry_dt),
                 condition=entry.get("condition") or "",
                 high_text=_format_temperature(entry.get("temperature"), unit),
-                low_text=_format_temperature(entry.get("templow"), unit),
             )
         )
     return forecast
@@ -166,7 +171,7 @@ async def async_render_idle_scene(
     forecast = await async_get_weather_forecast(hass, weather_entity)
     clock_text = dt_util.now().strftime(CLOCK_FORMAT)
 
-    forecast_tuples = [(day.label, day.condition, day.high_text, day.low_text) for day in forecast]
+    forecast_tuples = [(day.label, day.condition, day.high_text) for day in forecast]
 
     return await hass.async_add_executor_job(
         partial(

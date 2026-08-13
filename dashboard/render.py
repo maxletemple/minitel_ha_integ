@@ -385,6 +385,44 @@ def draw_weather_icon(
 # --- Scenes ---------------------------------------------------------------
 
 
+def _draw_weather_column(
+    draw: ImageDraw.ImageDraw,
+    x0: float,
+    x1: float,
+    top_y: float,
+    *,
+    label: str,
+    condition: str,
+    temp_text: str,
+    label_font_size: int,
+    icon_size: int,
+    temp_font_size: int,
+    text_color: int,
+    background_color: int,
+    font_path: str | None,
+) -> None:
+    """Draw one [label] / icon / temperature column, centered between x0 and x1."""
+    center_x = (x0 + x1) / 2
+    max_width = x1 - x0 - 2 * _MARGIN
+    y = top_y
+
+    if label:
+        label_font = _load_font(font_path, label_font_size)
+        fitted_label = _fit_text(draw, label, label_font, max_width)
+        label_width = draw.textlength(fitted_label, font=label_font)
+        draw.text((center_x - label_width / 2, y), fitted_label, fill=text_color, font=label_font)
+        y += label_font_size + _MARGIN
+
+    icon_x = center_x - icon_size / 2
+    draw_weather_icon(draw, condition, (icon_x, y, icon_x + icon_size, y + icon_size), text_color, background_color)
+    y += icon_size + _MARGIN
+
+    temp_font = _load_font(font_path, temp_font_size)
+    fitted_temp = _fit_text(draw, temp_text, temp_font, max_width)
+    temp_width = draw.textlength(fitted_temp, font=temp_font)
+    draw.text((center_x - temp_width / 2, y), fitted_temp, fill=text_color, font=temp_font)
+
+
 def render_idle_scene(
     width: int,
     height: int,
@@ -392,19 +430,22 @@ def render_idle_scene(
     clock_text: str,
     condition: str,
     temperature_text: str,
-    forecast: list[tuple[str, str, str, str]] = (),
+    forecast: list[tuple[str, str, str]] = (),
     background_color: int = 0,
     text_color: int = 255,
     clock_font_size: int | None = None,
-    weather_font_size: int = 28,
-    forecast_font_size: int = 16,
-    icon_size: int = _DEFAULT_ICON_SIZE,
+    now_temp_font_size: int = 32,
+    now_icon_size: int = 40,
+    forecast_font_size: int = 22,
+    forecast_icon_size: int = _DEFAULT_ICON_SIZE,
     font_path: str | None = None,
 ) -> bytes:
-    """Top half: big clock. Bottom half: current conditions + forecast row.
+    """Top half: big clock. Bottom half: a row of weather columns.
 
-    `forecast` is a list of (day_label, condition, high_text, low_text)
-    tuples, soonest first, rendered as up to 5 columns. `clock_font_size`
+    The first column is the current conditions (no label, bigger icon and
+    font); the rest is `forecast` - a list of (day_label, condition,
+    max_temp_text) tuples, soonest first, up to 4 columns, sharing the same
+    label/icon/temperature layout at a smaller size. `clock_font_size`
     defaults to the largest size that fits the top half (see _fit_font_size).
     """
     image = Image.new("L", (width, height), background_color)
@@ -420,35 +461,63 @@ def render_idle_scene(
     clock_y = max((height // 2 - (clock_bbox[3] - clock_bbox[1])) // 2, _MARGIN)
     draw.text((clock_x, clock_y), clock_text, fill=text_color, font=clock_font)
 
-    bottom_top = height // 2
-    weather_font = _load_font(font_path, weather_font_size)
-    icon_top = bottom_top + _MARGIN
-    draw_weather_icon(draw, condition, (_MARGIN, icon_top, _MARGIN + icon_size, icon_top + icon_size), text_color, background_color)
-    text_y = icon_top + (icon_size - weather_font_size) // 2
-    draw.text((_MARGIN * 2 + icon_size, text_y), temperature_text, fill=text_color, font=weather_font)
+    forecast = list(forecast[:4])
+    row_top = height // 2 + _MARGIN * 2
+
+    now_weight = 1.3
+    day_weight = 1.0
+    weights = [now_weight] + [day_weight] * len(forecast)
+    total_weight = sum(weights)
+    column_bounds = []
+    x = 0.0
+    for weight in weights:
+        column_width = width * weight / total_weight
+        column_bounds.append((x, x + column_width))
+        x += column_width
+    if column_bounds:
+        column_bounds[-1] = (column_bounds[-1][0], width)
 
     if forecast:
-        forecast = forecast[:5]
-        column_width = width // len(forecast)
-        forecast_font = _load_font(font_path, forecast_font_size)
-        row_y = icon_top + icon_size + _MARGIN * 2
-        for i, (day_label, day_condition, high_text, low_text) in enumerate(forecast):
-            column_x = i * column_width
-            column_center = column_x + column_width // 2
-            column_max_width = column_width - 2 * _MARGIN
+        day_column_width = column_bounds[1][1] - column_bounds[1][0]
+        max_label_width = day_column_width - 2 * _MARGIN
+        forecast_font_size = min(
+            _fit_font_size(draw, day_label, font_path, max_label_width, forecast_font_size * 2)
+            for day_label, _, _ in forecast
+        )
 
-            label_fitted = _fit_text(draw, day_label, forecast_font, column_max_width)
-            label_width = draw.textlength(label_fitted, font=forecast_font)
-            draw.text((column_center - label_width / 2, row_y), label_fitted, fill=text_color, font=forecast_font)
+    now_x0, now_x1 = column_bounds[0]
+    _draw_weather_column(
+        draw,
+        now_x0,
+        now_x1,
+        row_top,
+        label="",
+        condition=condition,
+        temp_text=temperature_text,
+        label_font_size=0,
+        icon_size=now_icon_size,
+        temp_font_size=now_temp_font_size,
+        text_color=text_color,
+        background_color=background_color,
+        font_path=font_path,
+    )
 
-            icon_y = row_y + forecast_font_size + _MARGIN
-            icon_x = column_center - icon_size / 2
-            draw_weather_icon(draw, day_condition, (icon_x, icon_y, icon_x + icon_size, icon_y + icon_size), text_color, background_color)
-
-            temps_text = _fit_text(draw, f"{high_text}/{low_text}", forecast_font, column_max_width)
-            temps_width = draw.textlength(temps_text, font=forecast_font)
-            temps_y = icon_y + icon_size + _MARGIN
-            draw.text((column_center - temps_width / 2, temps_y), temps_text, fill=text_color, font=forecast_font)
+    for (day_label, day_condition, max_temp_text), (x0, x1) in zip(forecast, column_bounds[1:]):
+        _draw_weather_column(
+            draw,
+            x0,
+            x1,
+            row_top,
+            label=day_label,
+            condition=day_condition,
+            temp_text=max_temp_text,
+            label_font_size=forecast_font_size,
+            icon_size=forecast_icon_size,
+            temp_font_size=forecast_font_size,
+            text_color=text_color,
+            background_color=background_color,
+            font_path=font_path,
+        )
 
     return _to_png_bytes(image)
 

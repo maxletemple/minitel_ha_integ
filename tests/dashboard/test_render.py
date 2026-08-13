@@ -31,11 +31,10 @@ def test_render_idle_scene_returns_valid_png():
 
 def test_render_idle_scene_with_forecast():
     forecast = [
-        ("Mon", "sunny", "22C", "12C"),
-        ("Tue", "cloudy", "20C", "11C"),
-        ("Wed", "rainy", "18C", "10C"),
-        ("Thu", "lightning-rainy", "23C", "13C"),
-        ("Fri", "windy", "19C", "9C"),
+        ("Lundi", "sunny", "22C"),
+        ("Mardi", "cloudy", "20C"),
+        ("Mercredi", "rainy", "18C"),
+        ("Jeudi", "lightning-rainy", "23C"),
     ]
     result = render_idle_scene(
         556, 512, clock_text="12:34", condition="sunny", temperature_text="21.5C", forecast=forecast
