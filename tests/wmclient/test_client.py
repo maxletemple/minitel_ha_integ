@@ -122,3 +122,20 @@ async def test_commands_are_serialized(fake_server):
     assert len(server.received) == 20
     seen = {struct.unpack("<HHHHB", payload)[0] for _, _, _, payload in server.received}
     assert seen == set(range(20))
+
+
+async def test_connect_count_increments_on_lazy_reconnect(fake_server):
+    _server, port = fake_server
+    client = WmClient("127.0.0.1", port)
+    assert client.connect_count == 0
+    await client.async_connect()
+    try:
+        assert client.connect_count == 1
+        await client.async_get_summary()
+        assert client.connect_count == 1
+
+        await client.async_close()  # simulate a dropped connection
+        await client.async_get_summary()
+        assert client.connect_count == 2
+    finally:
+        await client.async_close()

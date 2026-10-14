@@ -7,7 +7,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
@@ -52,6 +52,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await async_update_dashboard(hass, entry, coordinator)
 
     entry.async_on_unload(async_track_time_interval(hass, _dashboard_tick, timedelta(seconds=scan_interval)))
+
+    @callback
+    def _on_coordinator_update() -> None:
+        # The coordinator wiped every window after a lost-then-resumed
+        # connection: redraw the dashboard right away (recreating its
+        # window) rather than waiting for the next tick.
+        if coordinator.consume_reconnected():
+            hass.async_create_task(async_update_dashboard(hass, entry, coordinator))
+
+    entry.async_on_unload(coordinator.async_add_listener(_on_coordinator_update))
 
     remove_media_listener = async_track_media_player_changes(hass, entry, coordinator)
     if remove_media_listener is not None:

@@ -38,6 +38,11 @@ class WmClient:
     def connected(self) -> bool:
         return self._connection.connected
 
+    @property
+    def connect_count(self) -> int:
+        """Incremented on every (re)connection - a change means the link was lost."""
+        return self._connection.connect_count
+
     async def async_connect(self) -> None:
         await self._connection.async_connect()
 

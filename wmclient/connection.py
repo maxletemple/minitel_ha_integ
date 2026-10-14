@@ -25,10 +25,16 @@ class WmConnection:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
+        self._connect_count = 0
 
     @property
     def connected(self) -> bool:
         return self._writer is not None and not self._writer.is_closing()
+
+    @property
+    def connect_count(self) -> int:
+        """Number of successful connections so far (lazy reconnects included)."""
+        return self._connect_count
 
     async def async_connect(self) -> None:
         """Open the TCP connection. Raises WmConnectionError on failure."""
@@ -37,6 +43,7 @@ class WmConnection:
                 self._reader, self._writer = await asyncio.open_connection(self._host, self._port)
         except (OSError, asyncio.TimeoutError) as err:
             raise WmConnectionError(f"cannot connect to {self._host}:{self._port}: {err}") from err
+        self._connect_count += 1
 
     async def async_close(self) -> None:
         """Close the TCP connection."""
