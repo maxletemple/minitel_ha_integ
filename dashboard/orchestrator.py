@@ -15,6 +15,7 @@ independent of the polling cadence).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -76,7 +77,10 @@ async def async_ensure_dashboard_window(
         _LOGGER.warning("failed to create the dashboard window: %s", err)
         return
 
-    await coordinator.async_request_refresh()
+    # Not async_request_refresh: its debouncer may delay the refresh, and
+    # until coordinator.data shows the new window, the next render would
+    # create a second one on top of it (empty, so the screen goes black).
+    await coordinator.async_refresh()
 
 
 # Attributes that actually affect what's rendered - media_player entities
@@ -93,6 +97,16 @@ async def async_update_dashboard(hass: HomeAssistant, entry: ConfigEntry, coordi
     is opt-in and off: return immediately without touching the display.
     """
     entry_data = hass.data[DOMAIN][entry.entry_id]
+    # Renders are triggered concurrently (periodic tick, media_player
+    # listener, reload after a reconnection): serialize them, otherwise two
+    # renders can both see no window yet and each create one.
+    async with entry_data.setdefault("dashboard_lock", asyncio.Lock()):
+        await _async_update_dashboard_locked(hass, entry, coordinator, entry_data)
+
+
+async def _async_update_dashboard_locked(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: MinitelCoordinator, entry_data: dict
+) -> None:
     switch = entry_data.get("dashboard_switch")
     if switch is not None and not switch.is_on:
         return

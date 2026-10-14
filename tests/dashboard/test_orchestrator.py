@@ -1,5 +1,6 @@
 """Tests for dashboard.orchestrator: switch gating and scene fallback wiring."""
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -24,7 +25,7 @@ from custom_components.minitel_interface.dashboard.orchestrator import (
 def _make_entry(hass, entry_id: str, *, options: dict, switch_on: bool = True, windows: list | None = None):
     entry = SimpleNamespace(entry_id=entry_id, options=options)
     client = AsyncMock()
-    coordinator = SimpleNamespace(client=client, data=windows or [], async_request_refresh=AsyncMock())
+    coordinator = SimpleNamespace(client=client, data=windows or [], async_refresh=AsyncMock())
     switch = SimpleNamespace(is_on=switch_on)
     hass.data.setdefault(DOMAIN, {})[entry_id] = {
         "client": client,
@@ -80,7 +81,26 @@ async def test_ensure_window_creates_when_none_exist(hass):
     await async_ensure_dashboard_window(hass, entry, coordinator.client, coordinator)
 
     coordinator.client.async_win_create.assert_awaited_once_with(0, 0, 200, 100)
-    coordinator.async_request_refresh.assert_awaited_once()
+    coordinator.async_refresh.assert_awaited_once()
+
+
+async def test_concurrent_renders_create_a_single_window(hass):
+    hass.states.async_set("weather.home", "sunny", {"temperature": 21.5, "temperature_unit": "°C"})
+    entry, coordinator, _switch = _make_entry(hass, "entry12", options=_BASE_OPTIONS, windows=[])
+
+    async def _refresh() -> None:
+        coordinator.data = [object()]
+
+    async def _win_create(*args) -> None:
+        await asyncio.sleep(0)  # yield like a real network round-trip would
+
+    coordinator.async_refresh.side_effect = _refresh
+    coordinator.client.async_win_create.side_effect = _win_create
+
+    await asyncio.gather(*(async_update_dashboard(hass, entry, coordinator) for _ in range(3)))
+
+    coordinator.client.async_win_create.assert_awaited_once()
+    assert coordinator.client.async_set_object_picture.await_count == 3
 
 
 async def test_ensure_window_skips_when_windows_already_exist(hass):
